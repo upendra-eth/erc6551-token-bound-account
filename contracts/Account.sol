@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./contracts/token/ERC721/IERC721.sol";
+import "./contracts/token/ERC20/IERC20.sol";
 import "./contracts/token/ERC1155/IERC1155.sol";
 import "./contracts/interfaces/IERC1271.sol";
 import "./contracts/utils/cryptography/SignatureChecker.sol";
@@ -43,10 +44,20 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     // Event emitted when an NFT is transferred
     event NFTTransferred(address from, address to, uint256 tokenId);
 
+    // Event emitted when an ERC2O Token is transferred
+    event ERC2OTokenTransferred(address from, address to, uint256 tokenId);
+
+    // Event emitted when spender is approved
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
+
     // Event emitted when ERC1155 tokens are transferred
     event BatchErc1155TokensTransferred(
-        address  from,
-        address  to,
+        address from,
+        address to,
         uint256[] tokenIds,
         uint256[] amounts
     );
@@ -76,6 +87,19 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
     modifier onlyUnlocked() {
         if (unlockTimestamp > block.timestamp) revert AccountLocked();
         _;
+    }
+
+    modifier onlyOwner() {
+        _checkOwner();
+        _;
+    }
+
+    /**
+     * @dev Throws if the sender is not the owner.
+     */
+    function _checkOwner() internal view virtual {
+        address _owner = owner();
+        if (msg.sender != _owner) revert NotAuthorized();
     }
 
     /**
@@ -111,12 +135,79 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         return _call(to, value, data);
     }
 
+    // Transfer an ERC2O Token from this contract to another address
+    function transferERC20Tokens(
+        address tokenCollection,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        // Get the instance of the IERC20 contract
+        IERC20 erc20Contract = IERC20(tokenCollection);
+
+        // Check if the owner have required amount of tokens
+        require(
+            erc20Contract.balanceOf(address(this)) >= amount,
+            "Owner dont have sufficient amount of ERC20 tokens"
+        );
+
+        // Transfer the tokens to the specified address
+        erc20Contract.transfer(to, amount);
+
+        // Emit the ERC2OTokenTransferred event
+        emit ERC2OTokenTransferred(address(this), to, amount);
+    }
+
+    // Transfer an ERC2O Token from this contract to another address
+    function transferFromERC20Tokens(
+        address tokenCollection,
+        address from,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        // Get the instance of the IERC20 contract
+        IERC20 erc20Contract = IERC20(tokenCollection);
+
+        // Check if the owner have required amount of tokens
+        require(
+            erc20Contract.balanceOf(from) >= amount,
+            "Owner dont have sufficient amount of ERC20 tokens"
+        );
+
+        // Transfer the tokens to the specified address
+        erc20Contract.transferFrom(from, to, amount);
+
+        // Emit the ERC2OTokenTransferred event
+        emit ERC2OTokenTransferred(from, to, amount);
+    }
+
+    // Approve spender for ERC2O Token
+    function ApproveERC20Tokens(
+        address tokenCollection,
+        address spender,
+        uint256 amount
+    ) external onlyOwner {
+        // Get the instance of the IERC20 contract
+        IERC20 erc20Contract = IERC20(tokenCollection);
+
+        // Check if the owner have required amount of tokens
+        require(
+            erc20Contract.balanceOf(address(this)) >= amount,
+            "Owner dont have sufficient amount of ERC20 tokens"
+        );
+
+        // Transfer the tokens to the specified address
+        erc20Contract.approve(spender, amount);
+
+        // Emit the Approve event
+        emit Approval(address(this), spender, amount);
+    }
+
     // Transfer an NFT from this contract to another address
     function transferERC721Tokens(
         address tokenCollection,
         address to,
         uint256 tokenId
-    ) external {
+    ) external onlyOwner {
         // Get the instance of the ERC721 contract
         IERC721 nftContract = IERC721(tokenCollection);
 
@@ -139,7 +230,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         address to,
         uint256 tokenId,
         uint256 amount
-    ) external {
+    ) external onlyOwner {
         // Get the instance of the ERC1155 contract
         IERC1155 erc1155Contract = IERC1155(tokenCollection);
 
@@ -168,7 +259,7 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external {
+    ) external onlyOwner {
         require(
             tokenIds.length == amounts.length,
             "ERC1155Handler: Invalid input length"
@@ -195,7 +286,12 @@ contract Account is IERC165, IERC1271, IAccount, MinimalReceiver {
         );
 
         // Emit the TokensTransferred event
-        emit BatchErc1155TokensTransferred(address(this),to, tokenIds ,amounts);
+        emit BatchErc1155TokensTransferred(
+            address(this),
+            to,
+            tokenIds,
+            amounts
+        );
     }
 
     /**
