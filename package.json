@@ -1,0 +1,19 @@
+{
+  "name": "tba-hardhat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.1",
+    "hardhat": "^2.15.0",
+    "openzeppelin-contracts": "^4.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0"
+  }
+}
